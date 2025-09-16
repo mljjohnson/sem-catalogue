@@ -16,5 +16,23 @@ backend/data/
 *.db
 
 # Misc
-.env
 .DS_Store
+
+# Environment files (root and app folders)
+.env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+!.env.example
+
+# Local virtualenvs (if created outside backend/.venv)
+.venv/
+venv/
+env/
+
+# Python tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
