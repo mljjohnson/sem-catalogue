@@ -1,0 +1,19 @@
+{
+  "hosts": [
+    "click.linksynergy.com",
+    "anrdoezrs.net",
+    "partnerize.com",
+    "awin1.com",
+    "awinaffiliate.com",
+    "impact.com",
+    "track.aflink.com",
+    "prf.hn",
+    "go.redirectingat.com"
+  ],
+  "param_patterns": ["aff_id", "aff_sub", "subid", "sid", "utm_source"]
+}
+
+
+
+
+

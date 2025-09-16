@@ -1,0 +1,20 @@
+﻿# Node / Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/.turbo/
+frontend/.env.local
+
+# Python
+backend/.venv/
+backend/__pycache__/
+**/__pycache__/
+*.pyc
+
+# Data & local DBs
+data/
+backend/data/
+*.db
+
+# Misc
+.env
+.DS_Store
