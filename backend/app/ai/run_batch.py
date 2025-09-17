@@ -12,9 +12,9 @@ from app.ai.process import process_url
 from loguru import logger
 
 
-async def _wrap_process(u: str) -> dict:
+async def _wrap_process(u: str, *, force: bool) -> dict:
     try:
-        res = await process_url(u, skip_if_exists=True)
+        res = await process_url(u, skip_if_exists=not force)
         return {
             "url": res.get("url") or u,
             "page_id": res.get("page_id"),
@@ -62,7 +62,7 @@ def read_seed_list(seed_path: Path, count: int) -> List[str]:
     return urls[:count]
 
 
-async def main(seed: Path, count: int, concurrency: int, out_csv: Path, quiet: bool) -> None:
+async def main(seed: Path, count: int, concurrency: int, out_csv: Path, quiet: bool, force: bool) -> None:
     if quiet:
         try:
             logger.remove()
@@ -102,7 +102,7 @@ async def main(seed: Path, count: int, concurrency: int, out_csv: Path, quiet: b
                 u = await q.get()
             except Exception:
                 return
-            r = await _wrap_process(u)
+            r = await _wrap_process(u, force=force)
             status = "ok"
             if r.get("error"):
                 status = "fail"
@@ -176,8 +176,9 @@ if __name__ == "__main__":
     p.add_argument("--concurrency", type=int, default=2)
     p.add_argument("--out", default=str(Path(__file__).resolve().parents[3] / "data" / "latest" / "ai_extract_summary.csv"))
     p.add_argument("--quiet", action="store_true", help="Suppress INFO/DEBUG logs; show only progress lines")
+    p.add_argument("--force", action="store_true", help="Reprocess URLs even if they already exist in the database")
     args = p.parse_args()
 
-    asyncio.run(main(Path(args.seed), args.count, args.concurrency, Path(args.out), args.quiet))
+    asyncio.run(main(Path(args.seed), args.count, args.concurrency, Path(args.out), args.quiet, args.force))
 
 

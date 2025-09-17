@@ -39,6 +39,32 @@ async def process_url(url: str, skip_if_exists: bool = True) -> Dict[str, Any]:
             html_status, html = html_status2, html2
     logger.info("HTML fetched for {} status={} bytes={}", url, html_status, len(html or ""))
 
+    # If 404, upsert status and exit early (no screenshot/LLM)
+    if int(html_status or 0) == 404:
+        canonical = extract_canonical(html or "", url) or normalize_url(url)
+        page_id = page_id_from_canonical(canonical)
+        primary_category, template = extract_page_meta(html or "")
+        with get_session() as session:
+            upsert_page(
+                session,
+                page_id=page_id,
+                url=normalize_url(url),
+                canonical_url=canonical,
+                status_code=404,
+                primary_category=primary_category,
+                vertical=map_vertical(primary_category),
+                template_type=template,
+                has_coupons=False,
+                has_promotions=False,
+                brand_list=[],
+                brand_positions=None,
+                product_list=[],
+                product_positions=None,
+            )
+            session.commit()
+        logger.info("Upserted 404 for {}", url)
+        return {"url": url, "status": 404, "skipped": True}
+
     logger.info("Getting screenshot for {}", url)
     screenshot = b""
     try:

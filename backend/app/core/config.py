@@ -19,7 +19,7 @@ class Settings(BaseSettings):
         validation_alias="CORS_ALLOW_ORIGINS",
     )
     openai_api_key: Optional[str] = Field(default=None, validation_alias="OPENAI_API_KEY")
-    openai_model: str = Field(default="gpt-4o-mini")
+    openai_model: str = Field(default="gpt-4.1")
 
 
 settings = Settings()

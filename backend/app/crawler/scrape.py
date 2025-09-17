@@ -29,6 +29,8 @@ async def fetch_html(
         "wait": "2000",
         # ScrapingBee expects milliseconds for timeout
         "timeout": str(int(timeout_s * 1000)),
+        # Return origin status/body instead of collapsing to 500
+        "transparent_status_code": "true",
     }
     if country_code:
         params["country_code"] = country_code
@@ -36,27 +38,77 @@ async def fetch_html(
     timeout = httpx.Timeout(connect=5.0, read=timeout_s, write=10.0, pool=None)
 
     async with httpx.AsyncClient(timeout=timeout) as client:
-        async for attempt in AsyncRetrying(
-            stop=stop_after_attempt(3),
-            wait=wait_exponential(multiplier=1, min=2, max=10),
-            retry=retry_if_exception_type((httpx.ReadTimeout, httpx.ConnectError, httpx.RemoteProtocolError)),
-            reraise=True,
-        ):
-            with attempt:
-                resp = await client.get(SCRAPINGBEE_ENDPOINT, params=params)
+        try:
+            async for attempt in AsyncRetrying(
+                stop=stop_after_attempt(3),
+                wait=wait_exponential(multiplier=1, min=2, max=10),
+                retry=retry_if_exception_type((httpx.ReadTimeout, httpx.ConnectError, httpx.RemoteProtocolError)),
+                reraise=True,
+            ):
+                with attempt:
+                    resp = await client.get(SCRAPINGBEE_ENDPOINT, params=params)
                 status = resp.status_code
                 text = resp.text if resp.text else ""
-                if status >= 400:
-                    snippet = text[:240].replace("\n", " ")
+                origin = resp.headers.get("X-Scrapingbee-Status") or resp.headers.get("X-Scrapingbee-Status-Code")
+                origin_code = None
+                try:
+                    origin_code = int(origin) if origin is not None else None
+                except Exception:
+                    origin_code = None
+
+                mode = "JS" if render_js else "HTML"
+                via = "standard"
+
+                # If non-success, retry once with premium proxy enabled
+                if status >= 400 or (origin_code is not None and origin_code >= 400):
+                    reason = (text[:140] or "").replace("\n", " ")
                     logger.warning(
-                        "ScrapingBee 4xx for {} (render_js={}): {}",
+                        "Fetch FAIL url={} mode={} via=standard http={} origin={} reason={}",
                         url,
-                        render_js,
-                        snippet,
+                        mode,
+                        status,
+                        origin_code,
+                        reason,
+                    )
+                    # Premium proxy fallback (single attempt)
+                    params_pp = dict(params)
+                    params_pp["premium_proxy"] = "true"
+                    logger.info("Fetch RETRY (premium_proxy) url={} mode={}", url, mode)
+                    resp = await client.get(SCRAPINGBEE_ENDPOINT, params=params_pp)
+                    via = "premium"
+                    status = resp.status_code
+                    text = resp.text if resp.text else ""
+                    origin = resp.headers.get("X-Scrapingbee-Status") or resp.headers.get("X-Scrapingbee-Status-Code")
+                    try:
+                        origin_code = int(origin) if origin is not None else None
+                    except Exception:
+                        origin_code = None
+
+                if status >= 400 or (origin_code is not None and origin_code >= 400):
+                    reason = (text[:140] or "").replace("\n", " ")
+                    logger.error(
+                        "Fetch FAIL url={} mode={} via={} http={} origin={} reason={}",
+                        url,
+                        mode,
+                        via,
+                        status,
+                        origin_code,
+                        reason,
                     )
                 else:
-                    logger.debug("Fetched {} status {} bytes {}", url, status, len(text))
+                    logger.info(
+                        "Fetch OK url={} mode={} via={} http={} origin={} bytes={}",
+                        url,
+                        mode,
+                        via,
+                        status,
+                        origin_code,
+                        len(text),
+                    )
                 return status, text
+        except (httpx.TimeoutException, httpx.HTTPError) as e:
+            logger.error("Fetch ERROR url={} mode={} via=standard exception={}", url, "JS" if render_js else "HTML", repr(e))
+            return 599, ""
 
 
 async def fetch_screenshot(
