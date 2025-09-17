@@ -15,7 +15,11 @@ class Settings(BaseSettings):
         default=None, validation_alias="SCRAPINGBEE_API_KEY"
     )
     cors_allow_origins: list[str] | str = Field(
-        default=["http://localhost:3000", "http://127.0.0.1:3000"],
+        default=[
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "https://sem-frontend-878144293804.europe-west1.run.app",
+        ],
         validation_alias="CORS_ALLOW_ORIGINS",
     )
     openai_api_key: Optional[str] = Field(default=None, validation_alias="OPENAI_API_KEY")
@@ -28,6 +32,9 @@ if isinstance(settings.cors_allow_origins, str):
     settings.cors_allow_origins = [
         o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()
     ]
+
+# Normalize CORS origins: drop trailing slashes and whitespace
+settings.cors_allow_origins = [o.rstrip("/") for o in settings.cors_allow_origins]
 
 
 
