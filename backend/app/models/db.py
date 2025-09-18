@@ -1,8 +1,10 @@
 from contextlib import contextmanager
 import os
+import logging
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine import make_url
 
 from app.core.config import settings
 from app.models.tables import Base
@@ -19,6 +21,8 @@ def _ensure_sqlite_path(url: str) -> None:
 
 
 _ensure_sqlite_path(settings.database_url)
+
+# Removed verbose DB URL logging for production cleanliness
 
 engine = create_engine(settings.database_url, pool_pre_ping=True, pool_recycle=3600)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

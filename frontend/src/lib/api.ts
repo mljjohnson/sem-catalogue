@@ -2,7 +2,7 @@ import axios from "axios";
 import qs from "qs";
 import type { Filters, PagesResponse } from "../types";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL
 
 export async function fetchPages(filters: Filters): Promise<PagesResponse> {
   const query = qs.stringify(

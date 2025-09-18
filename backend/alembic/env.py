@@ -12,13 +12,16 @@ if BASE_DIR not in sys.path:
 
 from app.models.tables import Base
 from app.core.config import settings
+from sqlalchemy.engine import make_url
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-section = config.get_section(config.config_ini_section)
-section["sqlalchemy.url"] = settings.database_url
+# Ensure SQLAlchemy URL is set for Alembic (override ini)
+config.set_main_option("sqlalchemy.url", settings.database_url)
+
+# Removed verbose DB URL print for production cleanliness
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

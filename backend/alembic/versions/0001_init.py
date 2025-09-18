@@ -19,7 +19,8 @@ def upgrade() -> None:
         sa.Column("vertical", sa.String(length=255)),
         sa.Column("template_type", sa.String(length=128)),
         sa.Column("has_coupons", sa.Boolean(), nullable=False, server_default=sa.text("0")),
-        sa.Column("brand_list", sa.JSON(), nullable=False, server_default=sa.text("'[]'")),
+        # MySQL does not allow defaults on JSON columns; enforce default in application layer
+        sa.Column("brand_list", sa.JSON(), nullable=False),
         sa.Column("brand_positions", sa.Text()),
         sa.Column("first_seen", sa.Date(), nullable=False),
         sa.Column("last_seen", sa.Date(), nullable=False),

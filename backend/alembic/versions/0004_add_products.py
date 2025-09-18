@@ -11,7 +11,8 @@ depends_on = None
 def upgrade() -> None:
     # Add product columns to pages_sem_inventory
     with op.batch_alter_table("pages_sem_inventory") as batch_op:
-        batch_op.add_column(sa.Column("product_list", sa.JSON(), nullable=False, server_default=sa.text("'[]'")))
+        # MySQL does not allow defaults on JSON columns; enforce default in application layer
+        batch_op.add_column(sa.Column("product_list", sa.JSON(), nullable=False))
         batch_op.add_column(sa.Column("product_positions", sa.Text()))
     # Create page_products table
     op.create_table(

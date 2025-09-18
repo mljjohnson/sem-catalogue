@@ -17,7 +17,8 @@ def upgrade() -> None:
         sa.Column("created_at", sa.String(length=32), nullable=False),
         sa.Column("html_bytes", sa.Integer(), nullable=False, server_default=sa.text("0")),
         sa.Column("screenshot_bytes", sa.Integer(), nullable=False, server_default=sa.text("0")),
-        sa.Column("data", sa.JSON(), nullable=False, server_default=sa.text("'{}'")),
+        # MySQL does not allow defaults on JSON columns; enforce default in application layer
+        sa.Column("data", sa.JSON(), nullable=False),
     )
     op.create_index("idx_ai_extracts_page", "page_ai_extracts", ["page_id"]) 
 
