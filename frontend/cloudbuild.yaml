@@ -1,0 +1,14 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_API_URL=https://sem-backend-878144293804.europe-west1.run.app/api'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/sem-frontend:$TAG_NAME'
+      - '.'
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/sem-frontend:$TAG_NAME']
+
+images:
+  - 'gcr.io/$PROJECT_ID/sem-frontend:$TAG_NAME'
