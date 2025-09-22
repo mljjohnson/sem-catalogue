@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     )
     openai_api_key: Optional[str] = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4.1")
+    
+    # Airtable integration
+    airtable_pat: Optional[str] = Field(default=None, validation_alias="AIRTABLE_PAT")
+    airtable_base_id: Optional[str] = Field(default=None, validation_alias="AIRTABLE_BASE_ID")
+    airtable_table_id: Optional[str] = Field(default=None, validation_alias="AIRTABLE_TABLE_ID")
 
 
 def _build_database_url_from_parts() -> Optional[str]:
