@@ -8,6 +8,28 @@ import { Resizable } from "react-resizable";
 import { CopyOutlined, ExportOutlined, LinkOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import axios from "axios";
+import Image from "next/image";
+
+// Logo mapping for different domains
+const DOMAIN_LOGOS: Record<string, string> = {
+  "carshieldplans.com": "/logos/carshield-logo.png",
+  "dollargeek.com": "/logos/dollargeek-logo.png", 
+  "expertise.com": "/logos/expertise-logo.png",
+  "forbes.com": "/logos/forbes-icon.png",
+  "gorenewalbyandersen.com": "/logos/rewewal-by-andersen-logo.png",
+  "usatoday.com": "/logos/usat-logo.png",
+};
+
+function getLogoForUrl(url: string): string | null {
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.replace(/^www\./, ""); // Remove www prefix
+    return DOMAIN_LOGOS[hostname] || null;
+  } catch {
+    return null;
+  }
+}
+
 // build query string without qs dependency
 function buildQuery(params: Record<string, any>): string {
   const usp = new URLSearchParams();
@@ -85,7 +107,7 @@ export default function HomePage() {
         primary_category: filters.primary_category || undefined,
         vertical: filters.vertical || undefined,
         template_type: filters.template_type || undefined,
-        status: typeof filters.status === "number" ? filters.status : undefined,
+        status: filters.status,
         limit: filters.limit ?? 50,
         offset: filters.offset ?? 0,
         sort: filters.sort || "last_seen:desc",
@@ -118,7 +140,6 @@ export default function HomePage() {
 
   const items = data.items || [];
   const total = data.total || 0;
-  const pagePromotions = items.filter((i) => i.has_promotions).length;
   const brandOptions = (facets.brands || []).map((b) => ({ label: b, value: b }));
   const productOptions = Array.from(new Set(items.flatMap((i) => (i as any).product_list || []))).map((p) => ({ label: p, value: p }));
   const categoryOptions = (facets.primary_categories || []).map((c) => ({ label: c as string, value: c as string }));
@@ -137,10 +158,32 @@ export default function HomePage() {
           const u = new URL(v);
           display = u.pathname || "/";
         } catch {}
+        
+        const logoSrc = getLogoForUrl(v);
+        
         return (
-          <Typography.Paragraph ellipsis={{ rows: 1 }} style={{ marginBottom: 0 }} title={v}>
-            <a href={v} target="_blank" rel="noreferrer">{display}</a>
-          </Typography.Paragraph>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {logoSrc && (
+              <div style={{
+                width: 16,
+                height: 16,
+                borderRadius: 3,
+                overflow: "hidden",
+                flexShrink: 0
+              }}>
+                <Image
+                  src={logoSrc}
+                  alt="Site logo"
+                  width={16}
+                  height={16}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
+            )}
+            <Typography.Paragraph ellipsis={{ rows: 1 }} style={{ marginBottom: 0, flex: 1 }} title={v}>
+              <a href={v} target="_blank" rel="noreferrer">{display}</a>
+            </Typography.Paragraph>
+          </div>
         );
       },
     },
@@ -382,7 +425,7 @@ export default function HomePage() {
             </Col>
           </Row>
         <div style={{ marginTop: 8, color: "#888" }}>
-          Showing {(filters.offset || 0) + 1}-{Math.min((filters.offset || 0) + (filters.limit || 50), total)} of {total} pages · {pagePromotions} with promotions
+          Showing {(filters.offset || 0) + 1}-{Math.min((filters.offset || 0) + (filters.limit || 50), total)} of {total} pages
         </div>
         </Card>
 

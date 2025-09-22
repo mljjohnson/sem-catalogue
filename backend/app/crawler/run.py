@@ -10,11 +10,13 @@ from typing import Optional
 from bs4 import BeautifulSoup
 
 from loguru import logger
+import sqlalchemy as sa
 from app.crawler.scrape import fetch_html
 from app.crawler.coupons import detect_coupons
 from app.crawler.affiliates import extract_affiliate_brands
 from app.core.config import settings
 from app.models.db import get_session
+from app.models.tables import PageSEMInventory
 from app.services.pages import upsert_page
 from app.utils.canonical import normalize_url, page_id_from_canonical
 from app.utils.mappings import map_vertical
@@ -95,19 +97,47 @@ async def crawl_url(url: str) -> None:
             brand_positions = "; ".join(parts) if parts else None
 
         with get_session() as session:
-            upsert_page(
-                session,
-                page_id=page_id,
-                url=normalize_url(url),
-                canonical_url=canonical,
-                status_code=int(status or 0),
-                primary_category=primary_category,
-                vertical=map_vertical(primary_category),
-                template_type=template_name,
-                has_coupons=bool(getattr(coupons, "has_coupons", False)),
-                brand_list=brand_list,
-                brand_positions=brand_positions,
-            )
+            # Check if this page has Airtable category/vertical data
+            existing = session.execute(
+                sa.select(PageSEMInventory).where(PageSEMInventory.page_id == page_id)
+            ).scalars().first()
+            
+            # AIRTABLE ALWAYS WINS: Don't overwrite if Airtable data exists
+            final_category = None  # Don't update category if Airtable data exists
+            final_vertical = None  # Don't update vertical if Airtable data exists
+            
+            if existing:
+                # If Airtable has data (indicated by having channel/team/brand), don't update category/vertical
+                has_airtable_data = any([existing.channel, existing.team, existing.brand])
+                if not has_airtable_data:
+                    # No Airtable data, safe to use crawler data
+                    final_category = primary_category
+                    final_vertical = map_vertical(primary_category)
+            else:
+                # No existing record, use crawler data
+                final_category = primary_category
+                final_vertical = map_vertical(primary_category)
+            
+            # Prepare upsert arguments - don't overwrite Airtable category/vertical
+            upsert_args = {
+                "session": session,
+                "page_id": page_id,
+                "url": normalize_url(url),
+                "canonical_url": canonical,
+                "status_code": int(status or 0),
+                "template_type": template_name,
+                "has_coupons": bool(getattr(coupons, "has_coupons", False)),
+                "brand_list": brand_list,
+                "brand_positions": brand_positions,
+            }
+            
+            # Only set category/vertical if we determined they should be updated
+            if final_category is not None:
+                upsert_args["primary_category"] = final_category
+            if final_vertical is not None:
+                upsert_args["vertical"] = final_vertical
+                
+            upsert_page(**upsert_args)
             session.commit()
     except Exception as e:
         logger.error("Failed to process {}: {}", url, e)

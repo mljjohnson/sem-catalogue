@@ -19,8 +19,8 @@ def upsert_page(
     url: str,
     canonical_url: str,
     status_code: int,
-    primary_category: Optional[str],
-    vertical: Optional[str],
+    primary_category: Optional[str] = None,
+    vertical: Optional[str] = None,
     template_type: Optional[str],
     has_coupons: bool,
     has_promotions: bool = False,
@@ -28,6 +28,13 @@ def upsert_page(
     brand_positions: Optional[str] = None,
     product_list: Optional[List[str]] = None,
     product_positions: Optional[str] = None,
+    # Airtable sync fields
+    airtable_id: Optional[str] = None,
+    channel: Optional[str] = None,
+    team: Optional[str] = None,
+    brand: Optional[str] = None,
+    # Cataloguing status
+    catalogued: Optional[int] = None,
 ) -> None:
     today = date.today()
     brand_list = brand_list or []
@@ -49,6 +56,13 @@ def upsert_page(
         product_positions=product_positions,
         first_seen=today,
         last_seen=today,
+        # Airtable fields
+        airtable_id=airtable_id,
+        channel=channel,
+        team=team,
+        brand=brand,
+        # Cataloguing status (auto-set based on status_code if not provided)
+        catalogued=catalogued if catalogued is not None else (1 if status_code != 0 else 0),
     )
     update_cols = {
         "url": url,
@@ -64,6 +78,13 @@ def upsert_page(
         "product_list": product_list,
         "product_positions": product_positions,
         "last_seen": today,
+        # Airtable fields
+        "airtable_id": airtable_id,
+        "channel": channel,
+        "team": team,
+        "brand": brand,
+        # Cataloguing status (auto-set based on status_code if not provided)
+        "catalogued": catalogued if catalogued is not None else (1 if status_code != 0 else 0),
     }
     dialect = session.bind.dialect.name  # type: ignore[attr-defined]
     if dialect == "sqlite":
@@ -179,6 +200,11 @@ def query_pages(
                 "ga_sessions_14d": r.ga_sessions_14d,
                 "ga_key_events_14d": r.ga_key_events_14d,
                 "page_type": page_type,
+                # Airtable fields
+                "airtable_id": getattr(r, "airtable_id", None),
+                "channel": getattr(r, "channel", None),
+                "team": getattr(r, "team", None),
+                "brand": getattr(r, "brand", None),
             }
         )
     return items, int(total)

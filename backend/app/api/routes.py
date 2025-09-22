@@ -31,7 +31,7 @@ def list_pages(
     primary_category: Optional[str] = None,
     vertical: Optional[str] = None,
     template_type: Optional[str] = None,
-    status: Optional[int] = 200,
+    status: Optional[int] = None,
     search: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,

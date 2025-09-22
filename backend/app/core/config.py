@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     database_url: str = Field(
-        default="mysql+pymysql://ace:ace_pw@db:3306/ace_sem",
+        default="mysql+pymysql://ace:ace_pw@localhost:3307/ace_sem",
         validation_alias="DATABASE_URL",
     )
     scrapingbee_api_key: Optional[str] = Field(
@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     )
     openai_api_key: Optional[str] = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4.1")
+    
+    # Airtable settings
+    airtable_pat: Optional[str] = Field(default=None, validation_alias="AIRTABLE_PAT")
+    airtable_base_id: str = Field(default="appfGPddh3kvKXSkx", validation_alias="AIRTABLE_BASE_ID")
+    airtable_table_id: str = Field(default="tbl5X32ZJvqrSwWaH", validation_alias="AIRTABLE_TABLE_ID")
+    airtable_view_id: str = Field(default="viwvPKhpPQOlX3tCu", validation_alias="AIRTABLE_VIEW_ID")
 
 
 settings = Settings()

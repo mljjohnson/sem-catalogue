@@ -14,7 +14,7 @@ export async function fetchPages(filters: Filters): Promise<PagesResponse> {
       primary_category: filters.primary_category || undefined,
       vertical: filters.vertical || undefined,
       template_type: filters.template_type || undefined,
-      status: typeof filters.status === "number" ? filters.status : undefined,
+      status: filters.status,
       limit: filters.limit ?? 50,
       offset: filters.offset ?? 0,
       sort: filters.sort || "last_seen:desc",
