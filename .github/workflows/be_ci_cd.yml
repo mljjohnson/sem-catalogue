@@ -1,0 +1,80 @@
+name: 'Sem-Catalogue-Backend'
+on:
+  pull_request:
+    types: [closed]
+    branches: [staging]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/be_ci_cd.yml'
+  workflow_dispatch:
+
+permissions:
+    id-token: write
+    contents: read
+
+jobs:
+  Check-dependabot:
+    uses: forbesadvisor/devops-workflows/.github/workflows/dependabot-scan.yml@main
+    secrets: inherit
+
+  Approval:
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == 'main' }}
+    needs: Check-dependabot
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approval Stage
+        run: |
+          echo "Approval Stage"
+
+  STAGING:
+    if: ${{ github.event.pull_request.merged == true && github.ref_name == 'staging' }}
+    needs: Check-dependabot
+    uses: forbesadvisor/devops-workflows/.github/workflows/dre_generic_ecs.yml@main
+    with:
+      role_arn: ${{ vars.STAGING_ASSUME_ROLE }}
+      aws_region: eu-west-2
+      branch_name: staging
+      commit_sha: ${GITHUB_SHA::3}
+      ecr_repo_name: sem-catalogue-be
+      work_dir: backend
+      taskdefinition: backend/infra/ecs/taskdef-staging.json
+      container_name: sem-catalogue-be
+      service_name: sem-catalogue-be-svc
+      cluster_name: MarketplaceInnovate-Staging
+      dockerfile: infra/Dockerfile
+      gh_secrets_parse: yes
+      env_file_name: backend/.env.staging
+      secret_name: BE_KEYS_STAGING
+    secrets: inherit
+
+  PROD:
+    needs: [Approval, Check-dependabot]
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == 'main' }}
+    uses: forbesadvisor/devops-workflows/.github/workflows/dre_generic_ecs.yml@main
+    with:
+      role_arn: ${{ vars.PROD_ASSUME_ROLE }}
+      aws_region: eu-west-2
+      branch_name: main
+      commit_sha: ${GITHUB_SHA::3}
+      ecr_repo_name: sem-catalogue-be
+      work_dir: backend
+      taskdefinition: backend/infra/ecs/taskdef-prod.json
+      container_name: sem-catalogue-be
+      service_name: sem-catalogue-be-svc
+      cluster_name: MarketplaceInnovate-Prod
+      dockerfile: infra/Dockerfile
+      gh_secrets_parse: yes
+      env_file_name: backend/.env.production
+      secret_name: BE_KEYS_PROD
+    secrets: inherit
+
+  NOTIFY:
+    needs: PROD
+    if: |
+      always() &&
+      (needs.PROD.result == 'success')
+    uses: forbesadvisor/devops-workflows/.github/workflows/deploy_notify.yml@main
+    secrets: inherit
+    with:
+      JOB_STATUS: ${{ needs.PROD.result }}
