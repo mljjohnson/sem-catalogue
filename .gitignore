@@ -31,6 +31,8 @@ frontend/.env.*
 .venv/
 venv/
 env/
+backend/.venv/
+backend/venv/
 
 # Python tooling caches
 .pytest_cache/
