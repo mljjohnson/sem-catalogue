@@ -27,6 +27,12 @@ class PageSEMInventory(Base):
     last_seen = Column(Date, nullable=False, default=date.today)
     ga_sessions_14d = Column(Integer)
     ga_key_events_14d = Column(Integer)
+    # Airtable sync fields
+    airtable_id = Column(String(255), nullable=True)  # Airtable record ID
+    channel = Column(String(255), nullable=True)      # DE Channel
+    team = Column(String(255), nullable=True)         # DE Team
+    brand = Column(String(255), nullable=True)        # DE Brand
+    catalogued = Column(Integer, nullable=False, default=0)  # 0=not catalogued, 1=successfully catalogued
 
 
 class PageBrand(Base):
