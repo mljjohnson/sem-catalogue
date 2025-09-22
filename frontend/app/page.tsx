@@ -12,12 +12,12 @@ import Image from "next/image";
 
 // Logo mapping for different domains
 const DOMAIN_LOGOS: Record<string, string> = {
-  "carshieldplans.com": "/logos/carshield-logo.png",
-  "dollargeek.com": "/logos/dollargeek-logo.png", 
-  "expertise.com": "/logos/expertise-logo.png",
-  "forbes.com": "/logos/forbes-icon.png",
-  "gorenewalbyandersen.com": "/logos/rewewal-by-andersen-logo.png",
-  "usatoday.com": "/logos/usat-logo.png",
+  "carshieldplans.com": "/sem-catalogue/logos/carshield-logo.png",
+  "dollargeek.com": "/sem-catalogue/logos/dollargeek-logo.png", 
+  "expertise.com": "/sem-catalogue/logos/expertise-logo.png",
+  "forbes.com": "/sem-catalogue/logos/forbes-icon.png",
+  "gorenewalbyandersen.com": "/sem-catalogue/logos/rewewal-by-andersen-logo.png",
+  "usatoday.com": "/sem-catalogue/logos/usat-logo.png",
 };
 
 function getLogoForUrl(url: string): string | null {
@@ -318,7 +318,7 @@ export default function HomePage() {
       <div style={{ padding: "60px 24px 24px", maxWidth: 1280, margin: "0 auto" }}>
         <div className="hero">
           <div className="icon-container">
-            <img src="/landing-icon.svg" alt="Landing icon" />
+            <img src="/sem-catalogue/landing-icon.svg" alt="Landing icon" />
           </div>
           <Typography.Title level={2} style={{ margin: 0 }}>SEM Landing Page Catalogue</Typography.Title>
           <Typography.Text type="secondary">Explore, filter and export SEM landing pages with promotions</Typography.Text>

@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "SEM Landing Page Catalogue",
   description: "SEM landing pages catalogue",
-  icons: { icon: "/mi-logo.svg" },
+  icons: { icon: "/sem-catalogue/mi-logo.svg" },
 };
 
 export default function RootLayout({
@@ -34,7 +34,7 @@ export default function RootLayout({
             <div className="header">
               <div className="header-background"></div>
               <div className="header-content">
-                <img alt="Marketplace Innovate Logo" loading="lazy" width="32" height="32" decoding="async" className="header-logo" style={{ color: "transparent" }} src="/mi-logo.svg" />
+                <img alt="Marketplace Innovate Logo" loading="lazy" width="32" height="32" decoding="async" className="header-logo" style={{ color: "transparent" }} src="/sem-catalogue/mi-logo.svg" />
                 <div className="header-title"><span>Marketplace</span><span>Innovate</span></div>
               </div>
             </div>
