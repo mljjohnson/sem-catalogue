@@ -14,7 +14,7 @@ from app.services.pages import query_pages
 router = APIRouter()
 
 
-@router.get("/health")
+@router.get("/healthz")
 def health() -> dict:
     return {"status": "ok"}
 
