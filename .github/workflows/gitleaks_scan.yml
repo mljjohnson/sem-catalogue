@@ -1,0 +1,15 @@
+name: 'Gitleaks-Scan-Workflow'
+on:
+  pull_request:
+    branches-ignore: [ release, main, master ]
+permissions:
+    pull-requests: write
+    contents: read
+    discussions: write
+
+jobs:
+  Secret-Scan:
+    uses: forbesadvisor/devops-workflows/.github/workflows/gitleaks_scan.yml@main
+    with:
+      gitleaks-users: ${{ vars.GITLEAKS_USERS }}
+    secrets: inherit

@@ -1,0 +1,58 @@
+{
+    "containerDefinitions": [
+        {
+            "name": "sem-catalogue-fe",
+            "image": "REPOSITORY_URI:IMAGE_TAG",
+            "cpu": 0,
+            "portMappings": [
+                {
+                    "containerPort": 3009,
+                    "hostPort": 3009,
+                    "protocol": "tcp",
+                    "appProtocol": "http"
+                }
+            ],
+            "essential": true,
+            "environment": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "readonlyRootFilesystem": true,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/MarketplaceInnovate/Staging/sem-catalogue-fe",
+                    "awslogs-region": "eu-west-2",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            }
+        }
+    ],
+    "family": "sem-catalogue-fe",
+    "executionRoleArn": "arn:aws:iam::570772633570:role/MarketplaceInnovate-Prod-SEM-CAT-FE-ECS-TASK-EXEC-ROLE",
+    "networkMode": "awsvpc",
+    "volumes": [],
+    "placementConstraints": [],
+    "compatibilities": [
+        "EC2",
+        "FARGATE"
+    ],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "256",
+    "memory": "512",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "tags": [
+        {
+            "key": "Application",
+            "value": "Marketplace_Innovate"
+        },
+        {
+            "key": "Environment",
+            "value": "Prod"
+        }
+    ]
+}
