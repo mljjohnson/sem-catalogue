@@ -25,6 +25,7 @@ class AirtableService:
             "DE: Brand: ": "brand",                   # DE Brand (note the trailing space)
             "DE: Vertical": "vertical",               # DE Vertical
             "DE: Category": "primary_category",       # DE Category
+            "Page Status": "page_status",             # Page Status (Active/Inactive)
         }
     
     def fetch_all_records(self) -> List[Dict[str, Any]]:

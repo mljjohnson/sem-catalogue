@@ -32,6 +32,7 @@ export type Filters = {
   vertical?: string;
   template_type?: string;
   status?: number | null;
+  publisher?: string;
   limit?: number;
   offset?: number;
   sort?: string;

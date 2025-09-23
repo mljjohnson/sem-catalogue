@@ -52,13 +52,17 @@ def main(dry_run: bool, auto_process: bool, max_process: int):
     
     for record in airtable_records:
         original_url = record.get("landing_page")
-        if original_url:
-            normalized = normalize_url(original_url)
-            airtable_url_map[normalized] = {
-                "original_url": original_url,
-                "record": record
-            }
-            airtable_normalized_urls.add(normalized)
+        
+        # Skip if URL is missing
+        if not original_url:
+            continue
+            
+        normalized = normalize_url(original_url)
+        airtable_url_map[normalized] = {
+            "original_url": original_url,
+            "record": record
+        }
+        airtable_normalized_urls.add(normalized)
     
     logger.info(f"Found {len(airtable_normalized_urls)} unique normalized URLs in Airtable")
     
@@ -123,6 +127,7 @@ def main(dry_run: bool, auto_process: bool, max_process: int):
             brand = record.get("brand")
             vertical = record.get("vertical")
             primary_category = record.get("primary_category")
+            page_status = record.get("page_status")
             
             try:
                 # Update using direct SQL to avoid needing all required fields
@@ -134,6 +139,7 @@ def main(dry_run: bool, auto_process: bool, max_process: int):
                     brand=brand,
                     vertical=vertical,
                     primary_category=primary_category,
+                    page_status=page_status,
                 )
                 session.execute(stmt)
                 updates_count += 1
@@ -163,9 +169,10 @@ def main(dry_run: bool, auto_process: bool, max_process: int):
                 # Extract metadata
                 channel = record.get("channel")
                 team = record.get("team")
-                brand = record.get("brand") 
+                brand = record.get("brand")
                 vertical = record.get("vertical")
                 primary_category = record.get("primary_category")
+                page_status = record.get("page_status")
                 
                 try:
                     # Generate page_id from URL
@@ -185,6 +192,7 @@ def main(dry_run: bool, auto_process: bool, max_process: int):
                         brand=brand,
                         vertical=vertical,
                         primary_category=primary_category,
+                        page_status=page_status,
                     )
                     processed += 1
                     logger.info(f"Processed new URL: {original_url}")

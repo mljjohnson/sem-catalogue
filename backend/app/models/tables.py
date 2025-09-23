@@ -32,6 +32,7 @@ class PageSEMInventory(Base):
     channel = Column(String(255), nullable=True)      # DE Channel
     team = Column(String(255), nullable=True)         # DE Team
     brand = Column(String(255), nullable=True)        # DE Brand
+    page_status = Column(String(50), nullable=True)   # Page Status (Active/Inactive)
     catalogued = Column(Integer, nullable=False, default=0)  # 0=not catalogued, 1=successfully catalogued
 
 

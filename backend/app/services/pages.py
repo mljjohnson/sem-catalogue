@@ -33,6 +33,7 @@ def upsert_page(
     channel: Optional[str] = None,
     team: Optional[str] = None,
     brand: Optional[str] = None,
+    page_status: Optional[str] = None,
     # Cataloguing status
     catalogued: Optional[int] = None,
 ) -> None:
@@ -61,6 +62,7 @@ def upsert_page(
         channel=channel,
         team=team,
         brand=brand,
+        page_status=page_status,
         # Cataloguing status (auto-set based on status_code if not provided)
         catalogued=catalogued if catalogued is not None else (1 if status_code != 0 else 0),
     )
@@ -83,6 +85,7 @@ def upsert_page(
         "channel": channel,
         "team": team,
         "brand": brand,
+        "page_status": page_status,
         # Cataloguing status (auto-set based on status_code if not provided)
         "catalogued": catalogued if catalogued is not None else (1 if status_code != 0 else 0),
     }
@@ -111,6 +114,7 @@ def query_pages(
     vertical: Optional[str] = None,
     template_type: Optional[str] = None,
     status: Optional[int] = None,
+    publisher: Optional[str] = None,
     search: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
@@ -118,6 +122,14 @@ def query_pages(
 ) -> Tuple[List[Dict[str, Any]], int]:
     q = select(PageSEMInventory)
     dialect = session.bind.dialect.name  # type: ignore[attr-defined]
+    
+    # Filter out Inactive pages - only show Active pages or pages without status
+    q = q.where(or_(PageSEMInventory.page_status.is_(None), PageSEMInventory.page_status != "Inactive"))
+    
+    # Filter out excluded domains
+    excluded_domains = ['usatoday.com', 'gorenewalbyandersen.com', 'carshieldplans.com']
+    for domain in excluded_domains:
+        q = q.where(~PageSEMInventory.url.like(f'%{domain}%'))
 
     if coupons is not None:
         q = q.where(PageSEMInventory.has_coupons == coupons)
@@ -145,6 +157,8 @@ def query_pages(
         q = q.where(PageSEMInventory.template_type == template_type)
     if status is not None:
         q = q.where(PageSEMInventory.status_code == status)
+    if publisher:
+        q = q.where(PageSEMInventory.url.like(f'%{publisher}%'))
     if search:
         like = f"%{search}%"
         q = q.where(or_(PageSEMInventory.url.like(like), PageSEMInventory.canonical_url.like(like)))  # type: ignore
@@ -205,6 +219,7 @@ def query_pages(
                 "channel": getattr(r, "channel", None),
                 "team": getattr(r, "team", None),
                 "brand": getattr(r, "brand", None),
+                "page_status": getattr(r, "page_status", None),
             }
         )
     return items, int(total)

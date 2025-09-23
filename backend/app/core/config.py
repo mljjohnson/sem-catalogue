@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Direct URL fallback
     database_url: str = Field(
-        default="mysql+pymysql://ace:ace_pw@db:3306/ace_sem",
+        default="mysql+pymysql://ace:ace_pw@localhost:3307/ace_sem",
         validation_alias="DATABASE_URL",
     )
     scrapingbee_api_key: Optional[str] = Field(
@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     airtable_pat: Optional[str] = Field(default=None, validation_alias="AIRTABLE_PAT")
     airtable_base_id: Optional[str] = Field(default=None, validation_alias="AIRTABLE_BASE_ID")
     airtable_table_id: Optional[str] = Field(default=None, validation_alias="AIRTABLE_TABLE_ID")
+    airtable_view_id: Optional[str] = Field(default=None, validation_alias="AIRTABLE_VIEW_ID")
 
 
 def _build_database_url_from_parts() -> Optional[str]:

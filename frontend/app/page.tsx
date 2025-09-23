@@ -5,7 +5,7 @@ import "@ant-design/v5-patch-for-react-19";
 import { Table, Tag, Input, Select, Button, Space, Typography, Segmented, Pagination, Flex, Divider, Tooltip, Card, Row, Col, ConfigProvider, Modal, List } from "antd";
 import Link from "next/link";
 import { Resizable } from "react-resizable";
-import { CopyOutlined, ExportOutlined, LinkOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
+import { CopyOutlined, ExportOutlined, LinkOutlined, SearchOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import axios from "axios";
 import Image from "next/image";
@@ -16,6 +16,7 @@ const DOMAIN_LOGOS: Record<string, string> = {
   "dollargeek.com": "/sem-catalogue/logos/dollargeek-logo.png", 
   "expertise.com": "/sem-catalogue/logos/expertise-logo.png",
   "forbes.com": "/sem-catalogue/logos/forbes-icon.png",
+  "forbeshealth.com": "/sem-catalogue/logos/forbes-icon.png",
   "gorenewalbyandersen.com": "/sem-catalogue/logos/rewewal-by-andersen-logo.png",
   "usatoday.com": "/sem-catalogue/logos/usat-logo.png",
 };
@@ -144,6 +145,14 @@ export default function HomePage() {
   const productOptions = Array.from(new Set(items.flatMap((i) => (i as any).product_list || []))).map((p) => ({ label: p, value: p }));
   const categoryOptions = (facets.primary_categories || []).map((c) => ({ label: c as string, value: c as string }));
   const verticalOptions = (facets.verticals || []).map((v) => ({ label: v as string, value: v as string }));
+  
+  // Publisher options derived from URLs
+  const publisherOptions = [
+    { label: "Forbes", value: "forbes.com" },
+    { label: "Forbes Health", value: "forbeshealth.com" },
+    { label: "Expertise.com", value: "expertise.com" },
+    { label: "DollarGeek", value: "dollargeek.com" },
+  ];
 
   const baseColumns: ColumnsType<PageItem> = [
     {
@@ -374,7 +383,7 @@ export default function HomePage() {
 
           {/* Row 2: Brands + Categories + Verticals + Actions */}
           <Row gutter={[12, 12]} align="middle">
-            <Col flex="260px">
+            <Col flex="240px">
               <Select
                 className={filters.brands && filters.brands.length ? "gradient-border" : undefined}
                 mode="multiple"
@@ -388,7 +397,7 @@ export default function HomePage() {
                 style={{ width: "100%" }}
               />
             </Col>
-            <Col flex="260px">
+            <Col flex="240px">
               <Select
                 className={filters.primary_category ? "gradient-border" : undefined}
                 showSearch
@@ -401,7 +410,7 @@ export default function HomePage() {
                 style={{ width: "100%" }}
               />
             </Col>
-            <Col flex="260px">
+            <Col flex="240px">
               <Select
                 className={filters.vertical ? "gradient-border" : undefined}
                 showSearch
@@ -414,9 +423,21 @@ export default function HomePage() {
                 style={{ width: "100%" }}
               />
             </Col>
+            <Col flex="200px">
+              <Select
+                className={filters.publisher ? "gradient-border" : undefined}
+                showSearch
+                allowClear
+                placeholder="Publisher…"
+                optionFilterProp="label"
+                value={filters.publisher as any}
+                onChange={(v) => setFilters((f) => ({ ...f, publisher: (v as string | undefined) || undefined, offset: 0 }))}
+                options={publisherOptions}
+                style={{ width: "100%" }}
+              />
+            </Col>
             <Col flex="auto" style={{ textAlign: "right" }}>
               <Space>
-                <Button icon={<ReloadOutlined />} onClick={fetchPages} loading={loading}>Refresh</Button>
                 <Button onClick={onCopyUrls} icon={<CopyOutlined />}>Copy All URLs</Button>
                 <a href={exportUrl} target="_blank" rel="noreferrer">
                   <Button type="primary" className="gradient-btn" icon={<ExportOutlined />}>Export as CSV</Button>

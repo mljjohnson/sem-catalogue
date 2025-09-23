@@ -1,0 +1,38 @@
+{
+    "containerDefinitions": [
+        {
+            "name": "airtable-sync",
+            "image": "REPOSITORY_URI:IMAGE_TAG",
+            "cpu": 0,
+            "essential": true,
+            "environment": [
+                {
+                    "name": "ENVIRONMENT",
+                    "value": "production"
+                }
+            ],
+            "command": [
+                "python", "scheduled_sync.py"
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/MarketplaceInnovate/Prod/airtable-sync",
+                    "awslogs-region": "eu-west-2",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            }
+        }
+    ],
+    "family": "airtable-sync",
+    "executionRoleArn": "arn:aws:iam::570772633570:role/MarketplaceInnovate-Prod-SEM-CAT-BE-ECS-TASK-EXEC-ROLE",
+    "networkMode": "awsvpc",
+    "compatibilities": ["FARGATE"],
+    "requiresCompatibilities": ["FARGATE"],
+    "cpu": "256",
+    "memory": "512",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    }
+}
