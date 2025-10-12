@@ -27,6 +27,8 @@ frontend/.env
 frontend/.env.*
 !.env.example
 
+credentials/
+
 # Local virtualenvs (if created outside backend/.venv)
 .venv/
 venv/
@@ -43,3 +45,14 @@ backend/sem-catalogue-verticals.csv
 backend/sem-pages.csv
 backend/sem-missing.csv
 backend/data/latest/
+
+# Temporary test/analysis files
+backend/*_cache.json
+backend/*.csv
+backend/*.log
+backend/check_*.py
+backend/test_*.py
+backend/debug_*.py
+backend/export_*.py
+backend/delete_*.py
+backend/fix_*.py

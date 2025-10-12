@@ -4,6 +4,7 @@ from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import and_, func, select, or_
+import sqlalchemy as sa
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
@@ -36,6 +37,8 @@ def upsert_page(
     page_status: Optional[str] = None,
     # Cataloguing status
     catalogued: Optional[int] = None,
+    # Specific record ID to update
+    record_id: Optional[int] = None,
 ) -> None:
     today = date.today()
     brand_list = brand_list or []
@@ -89,18 +92,49 @@ def upsert_page(
         # Cataloguing status (auto-set based on status_code if not provided)
         "catalogued": catalogued if catalogued is not None else (1 if status_code != 0 else 0),
     }
-    dialect = session.bind.dialect.name  # type: ignore[attr-defined]
-    if dialect == "sqlite":
-        stmt = sqlite_insert(PageSEMInventory).values(values)
-        onconf = stmt.on_conflict_do_update(
-            index_elements=[PageSEMInventory.page_id],
-            set_=update_cols,
-        )
-        session.execute(onconf)
+    # If we have a specific record_id, update that exact record
+    if record_id:
+        existing = session.execute(
+            sa.select(PageSEMInventory).where(PageSEMInventory.id == record_id)
+        ).scalars().first()
+        
+        if existing:
+            # UPDATE the specific record
+            for key, val in update_cols.items():
+                setattr(existing, key, val)
+        else:
+            # Record not found - this shouldn't happen but insert anyway
+            new_record = PageSEMInventory(**values)
+            session.add(new_record)
     else:
-        stmt = mysql_insert(PageSEMInventory).values(values)
-        ondup = stmt.on_duplicate_key_update(**update_cols)
-        session.execute(ondup)
+        # No specific record_id - find the LATEST uncatalogued record for this page_id
+        existing = session.execute(
+            sa.select(PageSEMInventory)
+            .where(PageSEMInventory.page_id == page_id)
+            .where(PageSEMInventory.catalogued == 0)
+            .order_by(PageSEMInventory.id.desc())
+        ).scalars().first()
+        
+        if existing:
+            # UPDATE the existing uncatalogued record
+            for key, val in update_cols.items():
+                setattr(existing, key, val)
+        else:
+            # No uncatalogued record found - check if ANY record exists for this page_id
+            any_existing = session.execute(
+                sa.select(PageSEMInventory)
+                .where(PageSEMInventory.page_id == page_id)
+                .order_by(PageSEMInventory.last_seen.desc())
+            ).scalars().first()
+            
+            if any_existing:
+                # Record exists but is already catalogued - INSERT new version
+                new_record = PageSEMInventory(**values)
+                session.add(new_record)
+            else:
+                # No record exists at all - INSERT new
+                new_record = PageSEMInventory(**values)
+                session.add(new_record)
 
 
 def query_pages(
@@ -118,9 +152,30 @@ def query_pages(
     search: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
-    sort: Optional[str] = "last_seen:desc",
+    sort: Optional[str] = "page_id:asc",
 ) -> Tuple[List[Dict[str, Any]], int]:
-    q = select(PageSEMInventory)
+    # IMPORTANT: Only get the latest catalogued version of each URL
+    # AND only show URLs that exist in Airtable (airtable_id IS NOT NULL)
+    # Using a subquery to get the max last_seen for each page_id
+    latest_subq = (
+        select(
+            PageSEMInventory.page_id,
+            func.max(PageSEMInventory.last_seen).label('max_last_seen')
+        )
+        .where(PageSEMInventory.catalogued == 1)
+        .where(PageSEMInventory.airtable_id.isnot(None))
+        .group_by(PageSEMInventory.page_id)
+        .subquery()
+    )
+    
+    q = select(PageSEMInventory).join(
+        latest_subq,
+        and_(
+            PageSEMInventory.page_id == latest_subq.c.page_id,
+            PageSEMInventory.last_seen == latest_subq.c.max_last_seen
+        )
+    )
+    
     dialect = session.bind.dialect.name  # type: ignore[attr-defined]
     
     # Filter out Inactive pages - only show Active pages or pages without status
@@ -168,7 +223,7 @@ def query_pages(
     if sort:
         col, _, direction = sort.partition(":")
         direction = (direction or "asc").lower()
-        sort_col = getattr(PageSEMInventory, col, PageSEMInventory.last_seen)
+        sort_col = getattr(PageSEMInventory, col, PageSEMInventory.page_id)
         if direction == "desc":
             q = q.order_by(sort_col.desc())
         else:
@@ -196,6 +251,7 @@ def query_pages(
             page_type = None
         items.append(
             {
+                "id": r.id,
                 "page_id": r.page_id,
                 "url": r.url,
                 "canonical_url": r.canonical_url,
@@ -211,7 +267,7 @@ def query_pages(
                 "product_positions": getattr(r, "product_positions", None),
                 "first_seen": r.first_seen.isoformat() if r.first_seen else None,
                 "last_seen": r.last_seen.isoformat() if r.last_seen else None,
-                "ga_sessions_14d": r.ga_sessions_14d,
+                "sessions": getattr(r, "sessions", None),
                 "ga_key_events_14d": r.ga_key_events_14d,
                 "page_type": page_type,
                 # Airtable fields

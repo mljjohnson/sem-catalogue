@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import JSON, Boolean, Column, Date, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Column, Date, DateTime, Integer, String, Text
 from sqlalchemy.orm import declarative_base
 
 
@@ -10,7 +10,8 @@ Base = declarative_base()
 class PageSEMInventory(Base):
     __tablename__ = "pages_sem_inventory"
 
-    page_id = Column(String(64), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)  # Unique per record/version
+    page_id = Column(String(64), nullable=False, index=True)  # Groups versions of same URL
     url = Column(Text, nullable=False)
     canonical_url = Column(Text, nullable=False)
     status_code = Column(Integer, nullable=False)
@@ -23,9 +24,9 @@ class PageSEMInventory(Base):
     brand_positions = Column(Text)
     product_list = Column(JSON, nullable=False, default=list)
     product_positions = Column(Text)
-    first_seen = Column(Date, nullable=False, default=date.today)
-    last_seen = Column(Date, nullable=False, default=date.today)
-    ga_sessions_14d = Column(Integer)
+    first_seen = Column(Date, nullable=False)
+    last_seen = Column(Date, nullable=False)
+    sessions = Column(Integer, nullable=True)  # Sessions from BigQuery (NULL = not in BQ)
     ga_key_events_14d = Column(Integer)
     # Airtable sync fields
     airtable_id = Column(String(255), nullable=True)  # Airtable record ID

@@ -1,0 +1,262 @@
+AWSTemplateFormation:
+  Version: '2010-09-09'
+  Description: 'EventBridge scheduling for SEM Catalogue daily tasks'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+    Description: Environment name
+  
+  ClusterName:
+    Type: String
+    Default: MarketplaceInnovate-Prod-SEM-CAT-BE-CLUSTER
+    Description: ECS cluster name
+  
+  TaskExecutionRoleArn:
+    Type: String
+    Default: arn:aws:iam::570772633570:role/MarketplaceInnovate-Prod-SEM-CAT-BE-ECS-TASK-EXEC-ROLE
+    Description: ECS task execution role ARN
+  
+  ImageRepository:
+    Type: String
+    Description: Docker image repository URI (without tag)
+  
+  ImageTag:
+    Type: String
+    Default: latest
+    Description: Docker image tag
+
+Resources:
+  # EventBridge execution role
+  EventBridgeExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'SEM-Catalogue-EventBridge-Role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: ECSTaskExecution
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:RunTask
+                Resource: 
+                  - !Ref AirtableSyncTaskDefinition
+                  - !Ref ContentUpdatesTaskDefinition
+                  - !Ref BigQueryCleanupTaskDefinition
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: !Ref TaskExecutionRoleArn
+
+  # Task Definition for Airtable Sync
+  AirtableSyncTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub 'sem-catalogue-airtable-sync-${Environment}'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      ContainerDefinitions:
+        - Name: airtable-sync
+          Image: !Sub '${ImageRepository}:${ImageTag}'
+          Essential: true
+          Command:
+            - python
+            - scheduled_airtable_sync.py
+          Environment:
+            - Name: ENVIRONMENT
+              Value: !Ref Environment
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref AirtableSyncLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  # Task Definition for Content Updates
+  ContentUpdatesTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub 'sem-catalogue-content-updates-${Environment}'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 512
+      Memory: 1024
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      ContainerDefinitions:
+        - Name: content-updates
+          Image: !Sub '${ImageRepository}:${ImageTag}'
+          Essential: true
+          Command:
+            - python
+            - scheduled_content_updates.py
+          Environment:
+            - Name: ENVIRONMENT
+              Value: !Ref Environment
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ContentUpdatesLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  # CloudWatch Log Groups
+  AirtableSyncLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/sem-catalogue/airtable-sync/${Environment}'
+      RetentionInDays: 30
+
+  ContentUpdatesLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/sem-catalogue/content-updates/${Environment}'
+      RetentionInDays: 30
+
+  # Task Definition for BigQuery Cleanup  
+  BigQueryCleanupTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub 'sem-catalogue-bigquery-cleanup-${Environment}'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !Ref TaskExecutionRoleArn
+      ContainerDefinitions:
+        - Name: bigquery-cleanup
+          Image: !Sub '${ImageRepository}:${ImageTag}'
+          Essential: true
+          Command:
+            - python
+            - scheduled_bigquery_cleanup.py
+          Environment:
+            - Name: ENVIRONMENT
+              Value: !Ref Environment
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref BigQueryCleanupLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  BigQueryCleanupLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/sem-catalogue/bigquery-cleanup/${Environment}'
+      RetentionInDays: 30
+
+  # EventBridge Schedule for Airtable Sync (daily at 2:00 AM UTC)
+  AirtableSyncSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'sem-catalogue-airtable-sync-${Environment}'
+      Description: 'Daily Airtable sync for SEM Catalogue'
+      ScheduleExpression: 'cron(0 2 * * ? *)'  # 2:00 AM UTC daily
+      State: ENABLED
+      Targets:
+        - Arn: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}'
+          Id: AirtableSyncTarget
+          RoleArn: !GetAtt EventBridgeExecutionRole.Arn
+          EcsParameters:
+            TaskDefinitionArn: !Ref AirtableSyncTaskDefinition
+            LaunchType: FARGATE
+            NetworkConfiguration:
+              AwsVpcConfiguration:
+                Subnets:
+                  - subnet-0a5f95cb40bfa4e8b  # Replace with your subnet IDs
+                  - subnet-0123456789abcdef0  # Replace with your subnet IDs
+                SecurityGroups:
+                  - sg-0123456789abcdef0     # Replace with your security group ID
+                AssignPublicIp: ENABLED
+
+  # EventBridge Schedule for Content Updates (daily at 3:00 AM UTC)
+  ContentUpdatesSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'sem-catalogue-content-updates-${Environment}'
+      Description: 'Daily content updates check for SEM Catalogue'
+      ScheduleExpression: 'cron(0 3 * * ? *)'  # 3:00 AM UTC daily
+      State: ENABLED
+      Targets:
+        - Arn: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}'
+          Id: ContentUpdatesTarget
+          RoleArn: !GetAtt EventBridgeExecutionRole.Arn
+          EcsParameters:
+            TaskDefinitionArn: !Ref ContentUpdatesTaskDefinition
+            LaunchType: FARGATE
+            NetworkConfiguration:
+              AwsVpcConfiguration:
+                Subnets:
+                  - subnet-0a5f95cb40bfa4e8b  # Replace with your subnet IDs
+                  - subnet-0123456789abcdef0  # Replace with your subnet IDs
+                SecurityGroups:
+                  - sg-0123456789abcdef0     # Replace with your security group ID
+                AssignPublicIp: ENABLED
+
+  # EventBridge Schedule for BigQuery Cleanup (daily at 4:00 AM UTC)
+  BigQueryCleanupSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub 'sem-catalogue-bigquery-cleanup-${Environment}'
+      Description: 'Daily BigQuery session analysis and cleanup for SEM Catalogue'
+      ScheduleExpression: 'cron(0 4 * * ? *)'  # 4:00 AM UTC daily
+      State: ENABLED
+      Targets:
+        - Arn: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${ClusterName}'
+          Id: BigQueryCleanupTarget
+          RoleArn: !GetAtt EventBridgeExecutionRole.Arn
+          EcsParameters:
+            TaskDefinitionArn: !Ref BigQueryCleanupTaskDefinition
+            LaunchType: FARGATE
+            NetworkConfiguration:
+              AwsVpcConfiguration:
+                Subnets:
+                  - subnet-0a5f95cb40bfa4e8b  # Replace with your subnet IDs
+                  - subnet-0123456789abcdef0  # Replace with your subnet IDs
+                SecurityGroups:
+                  - sg-0123456789abcdef0     # Replace with your security group ID
+                AssignPublicIp: ENABLED
+
+Outputs:
+  AirtableSyncTaskDefinitionArn:
+    Description: 'ARN of the Airtable sync task definition'
+    Value: !Ref AirtableSyncTaskDefinition
+    Export:
+      Name: !Sub '${AWS::StackName}-AirtableSyncTaskDef'
+
+  ContentUpdatesTaskDefinitionArn:
+    Description: 'ARN of the content updates task definition'
+    Value: !Ref ContentUpdatesTaskDefinition
+    Export:
+      Name: !Sub '${AWS::StackName}-ContentUpdatesTaskDef'
+
+  BigQueryCleanupTaskDefinitionArn:
+    Description: 'ARN of the BigQuery cleanup task definition'
+    Value: !Ref BigQueryCleanupTaskDefinition
+    Export:
+      Name: !Sub '${AWS::StackName}-BigQueryCleanupTaskDef'
+
+  EventBridgeRoleArn:
+    Description: 'ARN of the EventBridge execution role'
+    Value: !GetAtt EventBridgeExecutionRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-EventBridgeRole'
+
+
+

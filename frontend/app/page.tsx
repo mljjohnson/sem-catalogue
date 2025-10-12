@@ -16,7 +16,7 @@ const DOMAIN_LOGOS: Record<string, string> = {
   "dollargeek.com": "/sem-catalogue/logos/dollargeek-logo.png", 
   "expertise.com": "/sem-catalogue/logos/expertise-logo.png",
   "forbes.com": "/sem-catalogue/logos/forbes-icon.png",
-  "forbeshealth.com": "/sem-catalogue/logos/forbes-icon.png",
+  "forbeshealth.com": "/sem-catalogue/logos/health-logo.png",
   "gorenewalbyandersen.com": "/sem-catalogue/logos/rewewal-by-andersen-logo.png",
   "usatoday.com": "/sem-catalogue/logos/usat-logo.png",
 };
@@ -25,6 +25,13 @@ function getLogoForUrl(url: string): string | null {
   try {
     const parsedUrl = new URL(url);
     const hostname = parsedUrl.hostname.replace(/^www\./, ""); // Remove www prefix
+    const pathname = parsedUrl.pathname;
+    
+    // Special case: Forbes Health - check for forbeshealth.com domain OR /health/ path
+    if (hostname === "forbeshealth.com" || pathname.startsWith("/health/")) {
+      return DOMAIN_LOGOS["forbeshealth.com"];
+    }
+    
     return DOMAIN_LOGOS[hostname] || null;
   } catch {
     return null;
@@ -48,6 +55,7 @@ function buildQuery(params: Record<string, any>): string {
 }
 
 type PageItem = {
+  id: number;
   page_id: string;
   url: string;
   canonical_url: string;
@@ -63,6 +71,7 @@ type PageItem = {
   product_positions?: string | null;
   last_seen?: string | null;
   page_type?: "listing" | "single_product" | null;
+  airtable_id?: string | null;
 };
 
 type PagesResponse = {
@@ -81,6 +90,7 @@ type Filters = {
   primary_category?: string;
   vertical?: string;
   template_type?: string;
+  publisher?: string;
   status?: number | null;
   limit?: number;
   offset?: number;
@@ -192,6 +202,17 @@ export default function HomePage() {
             <Typography.Paragraph ellipsis={{ rows: 1 }} style={{ marginBottom: 0, flex: 1 }} title={v}>
               <a href={v} target="_blank" rel="noreferrer">{display}</a>
             </Typography.Paragraph>
+            {r.airtable_id && (
+              <Tooltip title="In Airtable">
+                <div style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  backgroundColor: "#22c55e",
+                  flexShrink: 0
+                }} />
+              </Tooltip>
+            )}
           </div>
         );
       },
@@ -438,6 +459,12 @@ export default function HomePage() {
             </Col>
             <Col flex="auto" style={{ textAlign: "right" }}>
               <Space>
+                <Link href="/data-gaps">
+                  <Button icon={<LinkOutlined />}>Data Gaps</Button>
+                </Link>
+                <Link href="/task-logs">
+                  <Button icon={<LinkOutlined />}>Task Logs</Button>
+                </Link>
                 <Button onClick={onCopyUrls} icon={<CopyOutlined />}>Copy All URLs</Button>
                 <a href={exportUrl} target="_blank" rel="noreferrer">
                   <Button type="primary" className="gradient-btn" icon={<ExportOutlined />}>Export as CSV</Button>
@@ -452,7 +479,7 @@ export default function HomePage() {
 
         <Card size="small" className="elevate fade-in">
           <Table
-            rowKey={(r) => r.page_id}
+            rowKey={(r) => r.id}
             columns={resizableColumns as any}
             dataSource={items}
             loading={loading}

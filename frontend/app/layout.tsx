@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SEM Landing Page Catalogue",
+  title: "SEM Landing Page Catalogue - Marketplace Innovate",
   description: "SEM landing pages catalogue",
   icons: { icon: "/sem-catalogue/mi-logo.svg" },
 };

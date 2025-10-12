@@ -29,7 +29,10 @@ export default function PageDetail() {
   const jsonPretty = (obj: any) => JSON.stringify(obj ?? {}, null, 2);
 
   const listings = (data?.data?.listings as any[]) || [];
-  const otherPromos = (data?.data?.other_promotions as any[]) || [];
+  const otherPromos = ((data?.data?.other_promotions as any[]) || []).map((promo, idx) => ({
+    ...promo,
+    _uniqueKey: `promo-${idx}-${promo.description || ''}-${promo.code || ''}`,
+  }));
   const hasPromotions = !!data?.data?.has_promotions;
   const hasCoupons = !!data?.data?.has_coupons;
 
@@ -76,7 +79,7 @@ export default function PageDetail() {
 
       <Card className="elevate fade-in" title={`Other promotions (${otherPromos.length})`} style={{ marginBottom: 16 }}>
         <Table
-          rowKey={(r: any) => `${r.description}-${r.code}-${r.affiliate_link || ""}`}
+          rowKey={(r: any) => r._uniqueKey}
           dataSource={otherPromos}
           pagination={false}
           size="small"

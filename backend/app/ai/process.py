@@ -16,14 +16,20 @@ from app.models.tables import PageSEMInventory
 from app.services.pages import upsert_page, save_ai_extract
 
 
-async def process_url(url: str, skip_if_exists: bool = True) -> Dict[str, Any]:
+async def process_url(url: str, skip_if_exists: bool = True, record_id: int = None) -> Dict[str, Any]:
+    # Parse record_id from URL if it's in format "id|url"
+    if "|" in url:
+        parts = url.split("|", 1)
+        record_id = int(parts[0])
+        url = parts[1]
+    
     url = url.strip().strip('"').strip("'")
     if not url.startswith("http://") and not url.startswith("https://"):
         url = "https://" + url
 
-    logger.info("Working on {}", url)
-    # Skip if already present by url match
-    if skip_if_exists:
+    logger.info("Working on {} (record_id={})", url, record_id)
+    # Skip if already present by url match (only if no specific record_id)
+    if skip_if_exists and not record_id:
         with get_session() as session:
             existing = session.execute(
                 sa.select(PageSEMInventory).where(PageSEMInventory.url == normalize_url(url))
@@ -32,27 +38,26 @@ async def process_url(url: str, skip_if_exists: bool = True) -> Dict[str, Any]:
             logger.info("Skipping existing page {}", url)
             return {"url": url, "skipped": True}
     logger.info("Getting HTML for {}", url)
-    html_status, html = await fetch_html(url, render_js=True)
+    html_status, html, resolved_url = await fetch_html(url, render_js=True)
     if html_status >= 400 or len(html or "") < 1000:
-        html_status2, html2 = await fetch_html(url, render_js=False)
+        html_status2, html2, resolved_url2 = await fetch_html(url, render_js=False)
         if html_status2 < 400 and len(html2 or "") > len(html or ""):
-            html_status, html = html_status2, html2
-    logger.info("HTML fetched for {} status={} bytes={}", url, html_status, len(html or ""))
+            html_status, html, resolved_url = html_status2, html2, resolved_url2
+    logger.info("HTML fetched for {} status={} resolved={} bytes={}", url, html_status, resolved_url or url, len(html or ""))
 
-    # If 404, upsert status and exit early (no screenshot/LLM)
-    if int(html_status or 0) == 404:
-        canonical = extract_canonical(html or "", url) or normalize_url(url)
+    # If 301/302 redirect, upsert status and exit early (no screenshot/LLM)
+    if int(html_status or 0) in [301, 302, 303, 307, 308]:
+        canonical = resolved_url or normalize_url(url)
         page_id = page_id_from_canonical(canonical)
-        primary_category, template = extract_page_meta(html or "")
+        _, template = extract_page_meta(html or "")
         with get_session() as session:
             upsert_page(
                 session,
                 page_id=page_id,
                 url=normalize_url(url),
                 canonical_url=canonical,
-                status_code=404,
-                primary_category=primary_category,
-                vertical=map_vertical(primary_category),
+                status_code=html_status,
+                # Don't set category/vertical - Airtable owns that data
                 template_type=template,
                 has_coupons=False,
                 has_promotions=False,
@@ -60,6 +65,34 @@ async def process_url(url: str, skip_if_exists: bool = True) -> Dict[str, Any]:
                 brand_positions=None,
                 product_list=[],
                 product_positions=None,
+                record_id=record_id,
+            )
+            session.commit()
+        logger.info("Upserted {} redirect for {} -> {}", html_status, url, canonical)
+        return {"url": url, "status": html_status, "skipped": True, "redirect": canonical}
+
+    # If 404, upsert status and exit early (no screenshot/LLM)
+    if int(html_status or 0) == 404:
+        # Use resolved URL from ScrapingBee, or extract canonical from HTML, or fall back to original URL
+        canonical = resolved_url or extract_canonical(html or "", url) or normalize_url(url)
+        page_id = page_id_from_canonical(canonical)
+        _, template = extract_page_meta(html or "")
+        with get_session() as session:
+            upsert_page(
+                session,
+                page_id=page_id,
+                url=normalize_url(url),
+                canonical_url=canonical,
+                status_code=404,
+                # Don't set category/vertical - Airtable owns that data
+                template_type=template,
+                has_coupons=False,
+                has_promotions=False,
+                brand_list=[],
+                brand_positions=None,
+                product_list=[],
+                product_positions=None,
+                record_id=record_id,
             )
             session.commit()
         logger.info("Upserted 404 for {}", url)
@@ -84,7 +117,22 @@ async def process_url(url: str, skip_if_exists: bool = True) -> Dict[str, Any]:
     merged = reconcile_one(data if isinstance(data, dict) else {})
     logger.info("Merged signals for {} has_promotions={} brands={} products={}", url, merged.get("has_promotions"), len(merged.get("brand_list", [])), len(merged.get("product_list", [])))
 
-    canonical = extract_canonical(html or "", url)
+    # Determine canonical URL:
+    # 1. For redirects (301/302): Use resolved_url from ScrapingBee
+    # 2. For 200s: Extract canonical from HTML <link rel="canonical"> tag
+    # 3. Fallback: Use the original URL
+    if html_status in [301, 302, 303, 307, 308] and resolved_url:
+        # Redirect - use the resolved URL
+        canonical = resolved_url
+    else:
+        # 200 or other - check HTML for canonical tag first, then use resolved_url if different
+        canonical = extract_canonical(html or "", url)
+        if not canonical and resolved_url and resolved_url != url:
+            # No canonical tag but ScrapingBee resolved to different URL
+            canonical = resolved_url
+        if not canonical:
+            canonical = normalize_url(url)
+    
     page_id = page_id_from_canonical(canonical)
     primary_category, template = extract_page_meta(html or "")
 
@@ -99,28 +147,11 @@ async def process_url(url: str, skip_if_exists: bool = True) -> Dict[str, Any]:
             data=data if isinstance(data, dict) else {"raw": str(data)},
         )
 
-        # Check if this page has Airtable category/vertical data
-        existing = session.execute(
-            sa.select(PageSEMInventory).where(PageSEMInventory.page_id == page_id)
-        ).scalars().first()
+        # IMPORTANT: Category/vertical are ONLY set by Airtable sync
+        # The cataloguer NEVER updates these fields - Airtable is the source of truth
+        # If a URL is not in Airtable (airtable_id = NULL), category/vertical stay NULL
         
-        # AIRTABLE ALWAYS WINS: Don't overwrite if Airtable data exists
-        final_category = None  # Don't update category if Airtable data exists
-        final_vertical = None  # Don't update vertical if Airtable data exists
-        
-        if existing:
-            # If Airtable has data (indicated by having channel/team/brand), don't update category/vertical
-            has_airtable_data = any([existing.channel, existing.team, existing.brand])
-            if not has_airtable_data:
-                # No Airtable data, safe to use LLM data
-                final_category = primary_category
-                final_vertical = map_vertical(primary_category)
-        else:
-            # No existing record, use LLM data
-            final_category = primary_category
-            final_vertical = map_vertical(primary_category)
-
-        # Prepare upsert arguments - don't overwrite Airtable category/vertical
+        # Prepare upsert arguments - NEVER include category/vertical
         upsert_args = {
             "session": session,
             "page_id": page_id,
@@ -135,15 +166,9 @@ async def process_url(url: str, skip_if_exists: bool = True) -> Dict[str, Any]:
             "product_list": merged.get("product_list", []),
             "product_positions": merged.get("product_positions"),
         }
-        
-        # Only set category/vertical if we determined they should be updated
-        if final_category is not None:
-            upsert_args["primary_category"] = final_category
-        if final_vertical is not None:
-            upsert_args["vertical"] = final_vertical
             
         # upsert page with merged flags/brands
-        upsert_page(**upsert_args)
+        upsert_page(**upsert_args, record_id=record_id)
         session.commit()
     logger.info("Upserted {} has_promotions={} brands={}", url, bool(merged.get("has_promotions")), len(merged.get("brand_list", [])))
 

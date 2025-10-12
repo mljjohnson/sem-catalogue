@@ -9,6 +9,8 @@ from app.models.db import get_session
 from app.models.tables import PageSEMInventory
 from sqlalchemy import select
 from app.api.routes_ai import router as ai_router
+from app.api.data_gaps import router as data_gaps_router
+from app.api.task_logs import router as task_logs_router
 from app.services.pages import query_pages
 
 router = APIRouter()
@@ -20,6 +22,8 @@ def health() -> dict:
 
 # Mount AI routes
 router.include_router(ai_router)
+router.include_router(data_gaps_router)
+router.include_router(task_logs_router)
 
 
 @router.get("/pages")
@@ -36,7 +40,7 @@ def list_pages(
     search: Optional[str] = None,
     limit: int = 50,
     offset: int = 0,
-    sort: Optional[str] = "last_seen:desc",
+    sort: Optional[str] = "page_id:asc",
 ):
     with get_session() as session:
         items, total = query_pages(
@@ -68,7 +72,7 @@ def export_pages_csv(
     template_type: Optional[str] = None,
     status: Optional[int] = 200,
     search: Optional[str] = None,
-    sort: Optional[str] = "last_seen:desc",
+    sort: Optional[str] = "page_id:asc",
 ):
     with get_session() as session:
         items, _ = query_pages(
@@ -99,7 +103,7 @@ def export_pages_csv(
             "product_list",
             "product_positions",
             "status_code",
-            "last_seen",
+            "sessions",
         ],
     )
     writer.writeheader()
@@ -116,7 +120,7 @@ def export_pages_csv(
                 "product_list": ",".join(it.get("product_list", [])),
                 "product_positions": it.get("product_positions"),
                 "status_code": it.get("status_code"),
-                "last_seen": it.get("last_seen"),
+                "sessions": it.get("sessions"),
             }
         )
     buf.seek(0)

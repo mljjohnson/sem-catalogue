@@ -71,6 +71,7 @@ async def main(seed: Path, count: int, concurrency: int, out_csv: Path, quiet: b
             pass
     urls = read_seed_list(seed, count)
     total = len(urls)
+    # Always show starting message
     print(f"Starting batch: {total} urls, concurrency={concurrency}")
     start_ts = time.time()
 
@@ -126,10 +127,12 @@ async def main(seed: Path, count: int, concurrency: int, out_csv: Path, quiet: b
                 eta_sec = (remaining / rate_per_min * 60.0) if rate_per_min > 0 else None
                 pct = (completed / total * 100.0) if total else 100.0
                 success = (status == "ok")
+                # Always show progress, quiet only suppresses logger
                 print(f"[{completed}/{total} {pct:5.1f}%] success={str(success).lower()} :: {u}", flush=True)
             # Simple adaptive pause: if >50% of last 20 attempts failed and at least 5 failures, pause 5 minutes
             if len(recent) >= 10 and sum(recent) / len(recent) >= 0.5 and sum(recent) >= 5:
-                print("High error rate detected. Pausing for 300 seconds to cool down...")
+                if not quiet:
+                    print("High error rate detected. Pausing for 300 seconds to cool down...")
                 await asyncio.sleep(300)
                 recent.clear()
             q.task_done()
@@ -162,11 +165,11 @@ async def main(seed: Path, count: int, concurrency: int, out_csv: Path, quiet: b
                 # Write only known fields to avoid crashes on unexpected keys
                 row = {k: r.get(k) for k in fieldnames}
                 writer.writerow(row)
-                print({"url": r.get("url"), "has_promotions": r.get("has_promotions"), "brands_count": r.get("brands_count"), "skipped": r.get("skipped")})
+                # Suppress the per-result dict output - already shown in progress
             else:
-                print({"error": str(r)})
-
-    print(f"Wrote summary: {out_csv}")
+                pass  # Errors already logged during processing
+    
+    # Suppress CSV write message - it's internal detail
 
 
 if __name__ == "__main__":

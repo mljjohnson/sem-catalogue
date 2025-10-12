@@ -45,12 +45,20 @@ class AirtableService:
             
             # Transform records to use our field names
             transformed_records = []
+            excluded_domains = ['usatoday.com', 'cnn.com']
+            
             for record in records:
                 transformed = self._transform_record(record)
-                if transformed.get("landing_page"):  # Only include records with URLs
+                landing_page = transformed.get("landing_page")
+                
+                if landing_page:
+                    # Filter out unwanted domains
+                    if any(domain in landing_page.lower() for domain in excluded_domains):
+                        continue
+                    
                     transformed_records.append(transformed)
             
-            logger.info(f"Processed {len(transformed_records)} valid records with URLs")
+            logger.info(f"Processed {len(transformed_records)} valid records with URLs (filtered out USA Today and CNN)")
             return transformed_records
             
         except Exception as e:
@@ -104,6 +112,30 @@ class AirtableService:
                 urls.append(url)
         
         return urls
+    
+    def update_page_status(self, record_id: str, new_status: str) -> bool:
+        """
+        Update the Page Status field for a specific Airtable record.
+        
+        Args:
+            record_id: Airtable record ID
+            new_status: New status value (e.g., 'Active', 'Paused')
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            logger.info(f"Updating Airtable record {record_id} to status '{new_status}'")
+            
+            # Update the Page Status field
+            self.table.update(record_id, {"Page Status": new_status})
+            
+            logger.info(f"Successfully updated record {record_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating Airtable record {record_id}: {e}")
+            return False
 
 
 # Global service instance
