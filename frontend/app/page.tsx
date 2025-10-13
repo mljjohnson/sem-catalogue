@@ -170,7 +170,7 @@ export default function HomePage() {
       dataIndex: "url",
       key: "url",
       sorter: true,
-      width: 260,
+      width: 320,
       render: (v: string, r: PageItem) => {
         let display = v;
         try {
@@ -235,7 +235,7 @@ export default function HomePage() {
       title: "Brands",
       dataIndex: "brand_list",
       key: "brand_list",
-      width: 120,
+      width: 90,
       align: "center",
       render: (_: any, r: PageItem) => {
         const count = r.page_type === "single_product" ? 1 : (r.brand_list?.length || 0);
@@ -249,7 +249,7 @@ export default function HomePage() {
       title: "Products",
       dataIndex: "product_list",
       key: "product_list",
-      width: 120,
+      width: 90,
       align: "center",
       render: (_: any, r: PageItem) => {
         const count = r.page_type === "single_product" ? 1 : ((r.product_list || []).length);
@@ -459,12 +459,6 @@ export default function HomePage() {
             </Col>
             <Col flex="auto" style={{ textAlign: "right" }}>
               <Space>
-                <Link href="/data-gaps">
-                  <Button icon={<LinkOutlined />}>Data Gaps</Button>
-                </Link>
-                <Link href="/task-logs">
-                  <Button icon={<LinkOutlined />}>Task Logs</Button>
-                </Link>
                 <Button onClick={onCopyUrls} icon={<CopyOutlined />}>Copy All URLs</Button>
                 <a href={exportUrl} target="_blank" rel="noreferrer">
                   <Button type="primary" className="gradient-btn" icon={<ExportOutlined />}>Export as CSV</Button>
